@@ -1,6 +1,7 @@
 import pandas as pd
 import random
 from datetime import datetime
+import os
 
 # File path
 csv_path = "smartdiag_dynamic_writer_IC.csv"
@@ -33,23 +34,26 @@ def generate_ic_row():
     wheel_speed = round(random.uniform(0, 120), 2)
     brake_pressure = round(random.uniform(0, 60), 2)
 
-    # Fault detection logic
+    # Multi-label fault detection logic
+    faults = []
     if battery_v < 11.5 or battery_v > 15:
-        fault = "Battery_Voltage_Abnormal"
-    elif battery_c == 0:
-        fault = "Battery_NoCurrentDraw"
-    elif battery_t > 50:
-        fault = "Battery_Overheat"
-    elif coolant_t > 110 or coolant_t < 50:
-        fault = "Coolant_Temperature_Fault"
-    elif rpm > 6000:
-        fault = "RPM_Exceeds_Redline"
-    elif brake_pressure == 0 and rpm > 800:
-        fault = "Brake_Failure"
-    elif abs(wheel_speed - (rpm / 40)) > 5:
-        fault = "Wheel_Speed_Mismatch"
-    else:
-        fault = "Normal"
+        faults.append("Battery_Voltage_Abnormal")
+    if battery_c == 0:
+        faults.append("Battery_NoCurrentDraw")
+    if battery_t > 50:
+        faults.append("Battery_Overheat")
+    if coolant_t > 110 or coolant_t < 50:
+        faults.append("Coolant_Temperature_Fault")
+    if rpm > 6000:
+        faults.append("RPM_Exceeds_Redline")
+    if brake_pressure == 0 and rpm > 800:
+        faults.append("Brake_Failure")
+    if abs(wheel_speed - (rpm / 40)) > 5:
+        faults.append("Wheel_Speed_Mismatch")
+    if not faults:
+        faults.append("Normal")
+
+    fault_label = ";".join(faults)
 
     return [
         timestamp,
@@ -62,17 +66,19 @@ def generate_ic_row():
         motor_current,
         wheel_speed,
         brake_pressure,
-        fault
+        fault_label
     ]
 
 # Generate and write 50 rows
 data = [generate_ic_row() for _ in range(50)]
 df = pd.DataFrame(data, columns=columns)
 
-try:
-    with open(csv_path, 'x') as f:
-        df.to_csv(f, header=True, index=False)
-except FileExistsError:
-    df.to_csv(csv_path, mode='a', header=False, index=False)
+print(df.head())
+print(f"Number of rows: {len(df)}")
+
+if not os.path.exists(csv_path):
+    df.to_csv(csv_path, header=True, index=False, lineterminator='\n')
+else:
+    df.to_csv(csv_path, mode='a', header=False, index=False, lineterminator='\n')
 
 print("IC engine vehicle data written to", csv_path)

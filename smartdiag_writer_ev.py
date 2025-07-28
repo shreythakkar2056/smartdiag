@@ -1,6 +1,7 @@
 import pandas as pd
 import random
 from datetime import datetime
+import os
 
 # File path
 csv_path = "smartdiag_dynamic_writer_EV.csv"
@@ -33,25 +34,28 @@ def generate_ev_row():
     wheel_speed = round(random.uniform(0, 120), 2)
     brake_pressure = round(random.uniform(0, 60), 2)
 
-    # Fault detection logic
+    # Multi-label fault detection logic
+    faults = []
     if battery_v < 330 or battery_v > 420:
-        fault = "Battery_Voltage_Abnormal"
-    elif battery_c > 200:
-        fault = "Battery_Current_Overload"
-    elif battery_t < 10 or battery_t > 60:
-        fault = "Battery_Temperature_Abnormal"
-    elif coolant_t > 110 or coolant_t < 50:
-        fault = "Coolant_Temperature_Fault"
-    elif rpm > 9000:
-        fault = "Motor_RPM_Overlimit"
-    elif motor_current > 200:
-        fault = "Motor_Current_Overdraw"
-    elif abs(wheel_speed - (rpm / 40)) > 5:
-        fault = "Wheel_Speed_Mismatch"
-    elif brake_pressure == 0 and rpm > 1000:
-        fault = "Brake_Failure"
-    else:
-        fault = "Normal"
+        faults.append("Battery_Voltage_Abnormal")
+    if battery_c > 200:
+        faults.append("Battery_Current_Overload")
+    if battery_t < 10 or battery_t > 60:
+        faults.append("Battery_Temperature_Abnormal")
+    if coolant_t > 110 or coolant_t < 50:
+        faults.append("Coolant_Temperature_Fault")
+    if rpm > 9000:
+        faults.append("Motor_RPM_Overlimit")
+    if motor_current > 200:
+        faults.append("Motor_Current_Overdraw")
+    if abs(wheel_speed - (rpm / 40)) > 5:
+        faults.append("Wheel_Speed_Mismatch")
+    if brake_pressure == 0 and rpm > 1000:
+        faults.append("Brake_Failure")
+    if not faults:
+        faults.append("Normal")
+
+    fault_label = ";".join(faults)
 
     return [
         timestamp,
@@ -64,17 +68,19 @@ def generate_ev_row():
         motor_current,
         wheel_speed,
         brake_pressure,
-        fault
+        fault_label
     ]
 
 # Generate and write 50 rows
 data = [generate_ev_row() for _ in range(50)]
 df = pd.DataFrame(data, columns=columns)
 
-try:
-    with open(csv_path, 'x') as f:
-        df.to_csv(f, header=True, index=False)
-except FileExistsError:
-    df.to_csv(csv_path, mode='a', header=False, index=False)
+print(df.head())
+print(f"Number of rows: {len(df)}")
+
+if not os.path.exists(csv_path):
+    df.to_csv(csv_path, header=True, index=False, lineterminator='\n')
+else:
+    df.to_csv(csv_path, mode='a', header=False, index=False, lineterminator='\n')
 
 print("EV vehicle data written to", csv_path)
